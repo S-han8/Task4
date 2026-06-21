@@ -1,16 +1,18 @@
-﻿using Core.Entites;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Core.Entites;
 
-namespace Core.Repository
+namespace Application.Repository
 {
     public interface IEmployeeRepository
     {
-        Task<IEnumerable<Employee>> GetAllAsync();
-        Task<Employee?> GetByIdAsync(int id);
-        Task<Employee> AddAsync(Employee employee);
-        Task<bool> UpdateAsync(Employee employee);
-        Task<bool> DeleteAsync(int id);
+        Task<(IEnumerable<Employee> Employees, int TotalCount)> GetAllAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            string? sortBy,
+            bool desc,
+            CancellationToken cancellationToken = default);
     }
 }
