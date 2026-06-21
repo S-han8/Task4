@@ -1,15 +1,14 @@
-﻿using Application.Commands;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using Application.Queires;
 using Application.Responses;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace API.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class EmployeeController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -20,11 +19,13 @@ namespace API.Controllers
         }
 
         [HttpGet("GetAllEmployees")]
-        public async Task<ActionResult<IEnumerable<EmployeeResponse>>> GetAllEmployees()
+        public async Task<ActionResult<PagedResponse<EmployeeDto>>> GetAllEmployees(
+        [FromQuery] EmployeeQueryParameters parameters,
+        CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new GetAllEmployeesQuery());
+            var query = new GetAllEmployeesQuery(parameters);   
+            var result = await _mediator.Send(query, cancellationToken);
             return Ok(result);
         }
-    }
     }
 }

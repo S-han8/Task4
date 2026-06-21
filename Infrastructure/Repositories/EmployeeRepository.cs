@@ -1,9 +1,11 @@
-﻿using Core.Entites;
-using Core.Repository;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Application.Repository;
+using Core.Entites;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Infrastructure.Repositories
 {
@@ -16,48 +18,52 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Employee>> GetAllAsync()
+        public async Task<(IEnumerable<Employee> Employees, int TotalCount)> GetAllAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            string? sortBy,
+            bool desc,
+            CancellationToken cancellationToken = default)
         {
-            return await _context.Employees
+            IQueryable<Employee> query = _context.Employees
                 .Include(e => e.Department)
-                .ToListAsync();
-        }
+                .AsNoTracking();
 
-        public async Task<Employee?> GetByIdAsync(int id)
-        {
-            return await _context.Employees
-                .Include(e => e.Department)
-                .FirstOrDefaultAsync(e => e.Id == id);
-        }
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                query = query.Where(e => EF.Functions.Like(e.Name, $"%{term}%"));
+            }
 
-        public async Task<Employee> AddAsync(Employee emp)
-        {
-            await _context.Employees.AddAsync(emp);
-            await _context.SaveChangesAsync();
-            return emp;
-        }
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                switch (sortBy.Trim().ToLower())
+                {
+                    case "name":
+                        query = desc ? query.OrderByDescending(e => e.Name) : query.OrderBy(e => e.Name);
+                        break;
+                    case "salary":
+                        query = desc ? query.OrderByDescending(e => e.Salary) : query.OrderBy(e => e.Salary);
+                        break;
+                    default:
+                        query = query.OrderBy(e => e.Id);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderBy(e => e.Id);
+            }
 
-        public async Task<bool> UpdateAsync(Employee employee)
-        {
-            var existing = await _context.Employees.FindAsync(employee.Id);
-            if (existing == null) return false;
+            var totalCount = await query.CountAsync(cancellationToken);
 
-            existing.Name = employee.Name;
-            existing.Salary = employee.Salary;
-            existing.DepartmentId = employee.DepartmentId;
+            var employees = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
 
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var existing = await _context.Employees.FindAsync(id);
-            if (existing == null) return false;
-
-            _context.Employees.Remove(existing);
-            await _context.SaveChangesAsync();
-            return true;
+            return (employees, totalCount);
         }
     }
 }

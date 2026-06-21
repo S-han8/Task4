@@ -1,34 +1,35 @@
 ﻿using Application.Queires;
+using Application.Repository;
 using Application.Responses;
 using AutoMapper;
-using Core.Repository;
 using MediatR;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Handlers.Queires
 {
-    public class GetAllEmployeeQueryHandler : IRequestHandler<GetAllEmployeesQuery, IEnumerable<EmployeeResponse>>
+    public class GetAllEmployeeQueryHandler
+        : IRequestHandler<GetAllEmployeesQuery, PagedResponse<EmployeeDto>>
     {
-        private readonly IEmployeeRepository _repository;
+        private readonly IEmployeeRepository _employeeRepository;
         private readonly IMapper _mapper;
 
-        public GetAllEmployeeQueryHandler(IEmployeeRepository repository, IMapper mapper)
+        public GetAllEmployeeQueryHandler(IEmployeeRepository employeeRepository, IMapper mapper)
         {
-            _repository = repository;
+            _employeeRepository = employeeRepository;
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<EmployeeResponse>> Handle(GetAllEmployeesQuery request, CancellationToken cancellationToken)
+        public async Task<PagedResponse<EmployeeDto>> Handle(
+            GetAllEmployeesQuery request,
+            CancellationToken cancellationToken)
         {
-            var employees = await _repository.GetAllAsync();
-            return _mapper.Map<IEnumerable<EmployeeResponse>>(employees);
-        }
+            var p = request.Parameters; 
 
-        public Task<IEnumerable<EmployeeResponse>> Handle(GetAllEmployeesQuery request, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
+            var (employees, totalCount) = await _employeeRepository.GetAllAsync(
+                p.PageNumber, p.PageSize, p.Search, p.SortBy, p.Desc, cancellationToken);
+
+            var dtos = _mapper.Map<IEnumerable<EmployeeDto>>(employees);
+
+            return new PagedResponse<EmployeeDto>(dtos, p.PageNumber, p.PageSize, totalCount);
         }
     }
 }
